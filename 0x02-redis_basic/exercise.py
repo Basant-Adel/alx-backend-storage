@@ -12,7 +12,8 @@ def count_calls(method: Callable) -> Callable:
     def invoker(self, *args, **kwargs) -> Any:
         """ Invoker """
         if isinstance(self._redis, redis.Redis):
-            self._redis.incr(method.__qualname__)
+            count_key = f'{method.__qualname__}:call_count'
+            self._redis.incr(count_key)
         return method(self, *args, **kwargs)
     return invoker
 
@@ -41,8 +42,9 @@ def replay(fn: Callable) -> None:
     if not isinstance(redis_store, redis.Redis):
         return
     fxn_name = fn.__qualname__
+    count_key = f'{fxn_name}:call_count'
     in_key, out_key = f'{fxn_name}:inputs', f'{fxn_name}:outputs'
-    fxn_call_count = redis_store.get(fxn_name, 0)
+    fxn_call_count = redis_store.get(count_key, 0)
     print(f'{fxn_name} was called {fxn_call_count} times:')
     fxn_inputs = redis_store.lrange(in_key, 0, -1)
     fxn_outputs = redis_store.lrange(out_key, 0, -1)
