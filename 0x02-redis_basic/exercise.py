@@ -10,10 +10,9 @@ def count_calls(method: Callable) -> Callable:
     """ Count Calls """
     @wraps(method)
     def invoker(self, *args, **kwargs) -> Any:
-        """ Invoker """
+        """ Invokes """
         if isinstance(self._redis, redis.Redis):
-            count_key = f'{method.__qualname__}:call_count'
-            self._redis.incr(count_key)
+            self._redis.incr(method.__qualname__)
         return method(self, *args, **kwargs)
     return invoker
 
@@ -23,8 +22,8 @@ def call_history(method: Callable) -> Callable:
     @wraps(method)
     def invoker(self, *args, **kwargs) -> Any:
         """ Invoker """
-        key = method.__qualname__
-        in_key, out_key = f'{key}:inputs', f'{key}:outputs'
+        in_key = '{}:inputs'.format(method.__qualname__)
+        out_key = '{}:outputs'.format(method.__qualname__)
         if isinstance(self._redis, redis.Redis):
             self._redis.rpush(in_key, str(args))
         output = method(self, *args, **kwargs)
@@ -42,14 +41,20 @@ def replay(fn: Callable) -> None:
     if not isinstance(redis_store, redis.Redis):
         return
     fxn_name = fn.__qualname__
-    count_key = f'{fxn_name}:call_count'
-    in_key, out_key = f'{fxn_name}:inputs', f'{fxn_name}:outputs'
-    fxn_call_count = redis_store.get(count_key, 0)
-    print(f'{fxn_name} was called {fxn_call_count} times:')
+    in_key = '{}:inputs'.format(fxn_name)
+    out_key = '{}:outputs'.format(fxn_name)
+    fxn_call_count = 0
+    if redis_store.exists(fxn_name) != 0:
+        fxn_call_count = int(redis_store.get(fxn_name))
+    print('{} was called {} times:'.format(fxn_name, fxn_call_count))
     fxn_inputs = redis_store.lrange(in_key, 0, -1)
     fxn_outputs = redis_store.lrange(out_key, 0, -1)
     for fxn_input, fxn_output in zip(fxn_inputs, fxn_outputs):
-        print(f'{fxn_name}(*{fxn_input.decode("utf-8")}) -> {fxn_output}')
+        print('{}(*{}) -> {}'.format(
+            fxn_name,
+            fxn_input.decode("utf-8"),
+            fxn_output,
+        ))
 
 
 class Cache:
@@ -67,12 +72,11 @@ class Cache:
         self._redis.set(data_key, data)
         return data_key
 
-    def get(self, key: str, fn: Callable = None) -> Union[
-            str,
-            bytes,
-            int,
-            float
-            ]:
+    def get(
+            self,
+            key: str,
+            fn: Callable = None,
+            ) -> Union[str, bytes, int, float]:
         """ Get """
         data = self._redis.get(key)
         return fn(data) if fn is not None else data
