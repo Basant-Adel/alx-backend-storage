@@ -2,7 +2,7 @@
 
 **`Back-end`** **`Redis`**
 <br><br>
-<img src="">
+<img src="https://github.com/Basant-Adel/alx-backend-storage/blob/5f214325e99765b4dc99156325219091c6972814/0x02-redis_basic/hash.png">
 
 ## Resources
 
